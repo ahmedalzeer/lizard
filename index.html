@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Skeletal Lizard</title>
+        <style>
+            body {
+                margin: 0;
+                background: #000;
+                overflow: hidden;
+            }
+            canvas {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <script>
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            class Lizard {
+                constructor() {
+                    this.x = canvas.width / 2;
+                    this.y = canvas.height / 2;
+                    this.segments = [];
+                    this.angle = 0;
+                    this.speed = 3;
+                    this.targetX = this.x;
+                    this.targetY = this.y;
+                    this.walkCycle = 0;
+                    this.isMoving = false;
+
+                    // Create spine segments with larger spacing
+                    for (let i = 0; i < 40; i++) {
+                        this.segments.push({
+                            x: this.x,
+                            y: this.y,
+                            angle: 0,
+                            offset: 0,
+                        });
+                    }
+                }
+
+                update(mouseX, mouseY) {
+                    // Update head position with smooth movement
+                    const dx = mouseX - this.x;
+                    const dy = mouseY - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    this.isMoving = dist > 1;
+
+                    if (this.isMoving) {
+                        this.angle = Math.atan2(dy, dx);
+                        this.x +=
+                            Math.cos(this.angle) * Math.min(this.speed, dist);
+                        this.y +=
+                            Math.sin(this.angle) * Math.min(this.speed, dist);
+                        this.walkCycle += 0.1;
+                    }
+
+                    // Update spine segments with wave motion
+                    let prevX = this.x;
+                    let prevY = this.y;
+                    let prevAngle = this.angle;
+
+                    for (let i = 0; i < this.segments.length; i++) {
+                        const segment = this.segments[i];
+                        const segmentSpacing = 12;
+
+                        // Add subtle wave motion when moving
+                        if (this.isMoving) {
+                            segment.offset =
+                                Math.sin(this.walkCycle + i * 0.2) * 1.2;
+                        } else {
+                            segment.offset *= 0.95;
+                        }
+
+                        // Calculate new position with wave offset
+                        const offsetX =
+                            Math.cos(prevAngle + Math.PI / 2) * segment.offset;
+                        const offsetY =
+                            Math.sin(prevAngle + Math.PI / 2) * segment.offset;
+
+                        const targetX =
+                            prevX -
+                            Math.cos(prevAngle) * segmentSpacing +
+                            offsetX;
+                        const targetY =
+                            prevY -
+                            Math.sin(prevAngle) * segmentSpacing +
+                            offsetY;
+
+                        // Smooth segment movement
+                        segment.x += (targetX - segment.x) * 0.3;
+                        segment.y += (targetY - segment.y) * 0.3;
+
+                        // Update angle
+                        segment.angle = Math.atan2(
+                            segment.y - prevY,
+                            segment.x - prevX
+                        );
+
+                        prevX = segment.x;
+                        prevY = segment.y;
+                        prevAngle = segment.angle;
+                    }
+                }
+
+                draw() {
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.fillStyle = "#ffffff";
+
+                    // Draw neck connection first
+                    const neckWidth = 6;
+                    const neckLength = 8;
+
+                    // Left neck muscle
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        this.x + Math.cos(this.angle - Math.PI / 4) * neckWidth,
+                        this.y + Math.sin(this.angle - Math.PI / 4) * neckWidth
+                    );
+                    ctx.lineTo(
+                        this.segments[0].x +
+                            Math.cos(this.segments[0].angle - Math.PI / 6) *
+                                neckWidth,
+                        this.segments[0].y +
+                            Math.sin(this.segments[0].angle - Math.PI / 6) *
+                                neckWidth
+                    );
+                    ctx.lineWidth = 0.75;
+                    ctx.stroke();
+
+                    // Right neck muscle
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        this.x + Math.cos(this.angle + Math.PI / 4) * neckWidth,
+                        this.y + Math.sin(this.angle + Math.PI / 4) * neckWidth
+                    );
+                    ctx.lineTo(
+                        this.segments[0].x +
+                            Math.cos(this.segments[0].angle + Math.PI / 6) *
+                                neckWidth,
+                        this.segments[0].y +
+                            Math.sin(this.segments[0].angle + Math.PI / 6) *
+                                neckWidth
+                    );
+                    ctx.stroke();
+
+                    // Neck vertebrae details
+                    for (let i = 0; i < 3; i++) {
+                        const progress = i / 2;
+                        const x =
+                            this.x +
+                            Math.cos(this.angle) * (neckLength * progress);
+                        const y =
+                            this.y +
+                            Math.sin(this.angle) * (neckLength * progress);
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        // Small lateral processes
+                        const processLength = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(
+                            x +
+                                Math.cos(this.angle + Math.PI / 2) *
+                                    processLength,
+                            y +
+                                Math.sin(this.angle + Math.PI / 2) *
+                                    processLength
+                        );
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(
+                            x +
+                                Math.cos(this.angle - Math.PI / 2) *
+                                    processLength,
+                            y +
+                                Math.sin(this.angle - Math.PI / 2) *
+                                    processLength
+                        );
+                        ctx.stroke();
+                    }
+
+                    // Draw head with larger dimensions
+                    const headLength = 20;
+                    const jawLength = 14;
+                    const headWidth = 8;
+
+                    // Calculate head position and angle
+                    const headEndX = this.x + Math.cos(this.angle) * headLength;
+                    const headEndY = this.y + Math.sin(this.angle) * headLength;
+
+                    // Draw enhanced skull structure
+                    const skullWidth = headWidth * 1.2;
+
+                    // Base of the skull (occipital region)
+                    ctx.beginPath();
+                    ctx.arc(
+                        this.x,
+                        this.y,
+                        4,
+                        this.angle - Math.PI / 2,
+                        this.angle + Math.PI / 2
+                    );
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // Temporal bones (sides of skull)
+                    const rightSkullX =
+                        this.x +
+                        Math.cos(this.angle + Math.PI / 4) * skullWidth;
+                    const rightSkullY =
+                        this.y +
+                        Math.sin(this.angle + Math.PI / 4) * skullWidth;
+                    const leftSkullX =
+                        this.x +
+                        Math.cos(this.angle - Math.PI / 4) * skullWidth;
+                    const leftSkullY =
+                        this.y +
+                        Math.sin(this.angle - Math.PI / 4) * skullWidth;
+
+                    // Parietal bones
+                    ctx.beginPath();
+                    ctx.moveTo(rightSkullX, rightSkullY);
+                    ctx.quadraticCurveTo(
+                        this.x + Math.cos(this.angle) * (headLength * 0.6),
+                        this.y + Math.sin(this.angle) * (headLength * 0.6) + 4,
+                        headEndX,
+                        headEndY
+                    );
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(leftSkullX, leftSkullY);
+                    ctx.quadraticCurveTo(
+                        this.x + Math.cos(this.angle) * (headLength * 0.6),
+                        this.y + Math.sin(this.angle) * (headLength * 0.6) - 4,
+                        headEndX,
+                        headEndY
+                    );
+                    ctx.stroke();
+
+                    // Cranial sutures
+                    const sutures = 5;
+                    for (let i = 1; i < sutures; i++) {
+                        const progress = i / sutures;
+                        const x =
+                            this.x +
+                            Math.cos(this.angle) * (headLength * progress);
+                        const y =
+                            this.y +
+                            Math.sin(this.angle) * (headLength * progress);
+                        const width = headWidth * (1 - progress * 0.5);
+
+                        ctx.beginPath();
+                        ctx.moveTo(
+                            x + Math.cos(this.angle + Math.PI / 2) * width,
+                            y + Math.sin(this.angle + Math.PI / 2) * width
+                        );
+                        ctx.lineTo(
+                            x + Math.cos(this.angle - Math.PI / 2) * width,
+                            y + Math.sin(this.angle - Math.PI / 2) * width
+                        );
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+
+                    // Draw enhanced jaw
+                    const jawAngle = this.isMoving
+                        ? this.angle + Math.sin(this.walkCycle) * 0.15
+                        : this.angle;
+
+                    // Upper jaw with more detail
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(headEndX, headEndY);
+                    ctx.lineTo(
+                        headEndX + Math.cos(this.angle) * jawLength,
+                        headEndY + Math.sin(this.angle) * jawLength
+                    );
+                    ctx.stroke();
+
+                    // Lower jaw
+                    ctx.beginPath();
+                    ctx.moveTo(headEndX, headEndY);
+                    ctx.lineTo(
+                        headEndX + Math.cos(jawAngle) * jawLength,
+                        headEndY + Math.sin(jawAngle) * jawLength
+                    );
+                    ctx.stroke();
+
+                    // Draw larger eye socket with detail
+                    const eyeOffsetX = Math.cos(this.angle + Math.PI / 2) * 3;
+                    const eyeOffsetY = Math.sin(this.angle + Math.PI / 2) * 3;
+                    const eyeX =
+                        this.x +
+                        Math.cos(this.angle) * (headLength / 2) +
+                        eyeOffsetX;
+                    const eyeY =
+                        this.y +
+                        Math.sin(this.angle) * (headLength / 2) +
+                        eyeOffsetY;
+
+                    // Eye socket
+                    ctx.beginPath();
+                    ctx.arc(eyeX, eyeY, 2.5, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Eye detail
+                    ctx.beginPath();
+                    ctx.arc(eyeX, eyeY, 1, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw enhanced teeth
+                    const teethCount = 4;
+                    const teethLength = 1.5;
+                    for (let i = 0; i < teethCount; i++) {
+                        const toothOffset = (i - (teethCount - 1) / 2) * 2;
+                        const toothBaseX =
+                            headEndX + Math.cos(this.angle) * (jawLength - 3);
+                        const toothBaseY =
+                            headEndY + Math.sin(this.angle) * (jawLength - 3);
+
+                        // Upper teeth
+                        ctx.beginPath();
+                        ctx.moveTo(
+                            toothBaseX +
+                                Math.cos(this.angle + Math.PI / 2) *
+                                    toothOffset,
+                            toothBaseY +
+                                Math.sin(this.angle + Math.PI / 2) * toothOffset
+                        );
+                        ctx.lineTo(
+                            toothBaseX +
+                                Math.cos(this.angle + Math.PI / 2) *
+                                    toothOffset +
+                                Math.cos(this.angle) * teethLength,
+                            toothBaseY +
+                                Math.sin(this.angle + Math.PI / 2) *
+                                    toothOffset +
+                                Math.sin(this.angle) * teethLength
+                        );
+                        ctx.lineWidth = 0.75;
+                        ctx.stroke();
+
+                        // Lower teeth
+                        ctx.beginPath();
+                        ctx.moveTo(
+                            toothBaseX +
+                                Math.cos(this.angle + Math.PI / 2) *
+                                    toothOffset,
+                            toothBaseY +
+                                Math.sin(this.angle + Math.PI / 2) * toothOffset
+                        );
+                        ctx.lineTo(
+                            toothBaseX +
+                                Math.cos(this.angle + Math.PI / 2) *
+                                    toothOffset +
+                                Math.cos(jawAngle) * teethLength,
+                            toothBaseY +
+                                Math.sin(this.angle + Math.PI / 2) *
+                                    toothOffset +
+                                Math.sin(jawAngle) * teethLength
+                        );
+                        ctx.stroke();
+                    }
+
+                    // Draw spine and body segments with enhanced connection
+                    for (let i = 0; i < this.segments.length - 1; i++) {
+                        const current = this.segments[i];
+                        const next = this.segments[i + 1];
+
+                        // Main spine line
+                        ctx.beginPath();
+                        ctx.moveTo(current.x, current.y);
+                        ctx.lineTo(next.x, next.y);
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+
+                        // Enhanced vertebrae
+                        ctx.beginPath();
+                        ctx.arc(current.x, current.y, 2, 0, Math.PI * 2);
+                        ctx.lineWidth = 0.75;
+                        ctx.stroke();
+
+                        // Vertebral processes
+                        const processLength = i < 5 ? 6 : 5; // Longer processes near neck
+                        const processAngle1 = current.angle + Math.PI / 2.5;
+                        const processAngle2 = current.angle - Math.PI / 2.5;
+
+                        // Neural spine (dorsal process)
+                        ctx.beginPath();
+                        ctx.moveTo(current.x, current.y);
+                        ctx.lineTo(
+                            current.x + Math.cos(current.angle) * processLength,
+                            current.y + Math.sin(current.angle) * processLength
+                        );
+                        ctx.lineWidth = 0.75;
+                        ctx.stroke();
+
+                        // Transverse processes
+                        ctx.beginPath();
+                        ctx.moveTo(current.x, current.y);
+                        ctx.lineTo(
+                            current.x + Math.cos(processAngle1) * processLength,
+                            current.y + Math.sin(processAngle1) * processLength
+                        );
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.moveTo(current.x, current.y);
+                        ctx.lineTo(
+                            current.x + Math.cos(processAngle2) * processLength,
+                            current.y + Math.sin(processAngle2) * processLength
+                        );
+                        ctx.stroke();
+
+                        // Draw larger legs
+                        if (i === 5 || i === 15) {
+                            const legLength = 25;
+                            const footLength = 12;
+
+                            // Calculate leg animation offset
+                            const legOffset = this.isMoving
+                                ? Math.sin(
+                                      this.walkCycle + (i === 5 ? 0 : Math.PI)
+                                  ) * 0.4
+                                : 0;
+
+                            // Right leg
+                            const rightLegAngle =
+                                current.angle + Math.PI / 2 + legOffset;
+                            const rightLegX =
+                                current.x + Math.cos(rightLegAngle) * legLength;
+                            const rightLegY =
+                                current.y + Math.sin(rightLegAngle) * legLength;
+
+                            // Draw main leg bone
+                            ctx.beginPath();
+                            ctx.moveTo(current.x, current.y);
+                            ctx.lineTo(rightLegX, rightLegY);
+                            ctx.lineWidth = 1.5;
+                            ctx.stroke();
+
+                            // Leg joint
+                            ctx.beginPath();
+                            ctx.arc(rightLegX, rightLegY, 2, 0, Math.PI * 2);
+                            ctx.lineWidth = 0.75;
+                            ctx.stroke();
+
+                            // Draw detailed foot
+                            const toeSpread = this.isMoving
+                                ? 0.6 + Math.sin(this.walkCycle) * 0.1
+                                : 0.6;
+                            [-toeSpread, 0, toeSpread].forEach(
+                                (angleOffset, index) => {
+                                    const toeAngle =
+                                        rightLegAngle + angleOffset;
+                                    const toeLength =
+                                        footLength - (index === 1 ? 0 : 2);
+
+                                    ctx.beginPath();
+                                    ctx.moveTo(rightLegX, rightLegY);
+                                    ctx.lineTo(
+                                        rightLegX +
+                                            Math.cos(toeAngle) * toeLength,
+                                        rightLegY +
+                                            Math.sin(toeAngle) * toeLength
+                                    );
+                                    ctx.lineWidth = 0.75;
+                                    ctx.stroke();
+                                }
+                            );
+
+                            // Left leg (mirror of right leg)
+                            const leftLegAngle =
+                                current.angle - Math.PI / 2 - legOffset;
+                            const leftLegX =
+                                current.x + Math.cos(leftLegAngle) * legLength;
+                            const leftLegY =
+                                current.y + Math.sin(leftLegAngle) * legLength;
+
+                            ctx.beginPath();
+                            ctx.moveTo(current.x, current.y);
+                            ctx.lineTo(leftLegX, leftLegY);
+                            ctx.lineWidth = 1.5;
+                            ctx.stroke();
+
+                            ctx.beginPath();
+                            ctx.arc(leftLegX, leftLegY, 2, 0, Math.PI * 2);
+                            ctx.lineWidth = 0.75;
+                            ctx.stroke();
+
+                            [-toeSpread, 0, toeSpread].forEach(
+                                (angleOffset, index) => {
+                                    const toeAngle = leftLegAngle + angleOffset;
+                                    const toeLength =
+                                        footLength - (index === 1 ? 0 : 2);
+
+                                    ctx.beginPath();
+                                    ctx.moveTo(leftLegX, leftLegY);
+                                    ctx.lineTo(
+                                        leftLegX +
+                                            Math.cos(toeAngle) * toeLength,
+                                        leftLegY +
+                                            Math.sin(toeAngle) * toeLength
+                                    );
+                                    ctx.lineWidth = 0.75;
+                                    ctx.stroke();
+                                }
+                            );
+                        }
+                    }
+                }
+            }
+
+            const lizard = new Lizard();
+            let mouseX = canvas.width / 2;
+            let mouseY = canvas.height / 2;
+
+            canvas.addEventListener("mousemove", (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            function animate() {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.95)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                lizard.update(mouseX, mouseY);
+                lizard.draw();
+
+                requestAnimationFrame(animate);
+            }
+
+            animate();
+        </script>
+    </body>
+</html>
